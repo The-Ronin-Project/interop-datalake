@@ -1,0 +1,14 @@
+[libraries]
+interop-common = "com.projectronin.interop:interop-common:3.8.0"
+interop-commonJackson = "com.projectronin.interop:interop-common-jackson:3.8.0"
+
+interop-fhir = "com.projectronin.interop.fhir:interop-fhir:8.2.0"
+
+kotlinx-coroutines-core = "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1"
+mockk = "io.mockk:mockk:1.13.5"
+mockserver-client-java = "org.mock-server:mockserver-client-java-no-dependencies:5.15.0"
+oci-common = "com.oracle.oci.sdk:oci-java-sdk-common:3.15.0"
+oci-http-client = "com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:3.15.0"
+oci-objectstorage = "com.oracle.oci.sdk:oci-java-sdk-objectstorage:3.15.0"
+spring-framework-bom = "org.springframework:spring-framework-bom:5.3.23"
+testcontainers-bom = "org.testcontainers:testcontainers-bom:1.18.1"
