@@ -1,6 +1,6 @@
 [libraries]
-interop-common = "com.projectronin.interop:interop-common:3.8.0"
-interop-commonJackson = "com.projectronin.interop:interop-common-jackson:3.8.0"
+interop-common = "com.projectronin.interop:interop-common:3.9.1"
+interop-commonJackson = "com.projectronin.interop:interop-common-jackson:3.9.1"
 
 interop-fhir = "com.projectronin.interop.fhir:interop-fhir:8.2.1"
 
