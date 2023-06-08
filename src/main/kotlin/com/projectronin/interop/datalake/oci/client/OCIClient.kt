@@ -2,6 +2,7 @@ package com.projectronin.interop.datalake.oci.client
 
 import com.oracle.bmc.Region
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider
+import com.oracle.bmc.http.client.jersey.JerseyClientProperties
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
@@ -37,7 +38,8 @@ class OCIClient(
     @Value("\${oci.region:us-phoenix-1}")
     private val regionId: String
 ) {
-    private val privateKeySupplier: Supplier<InputStream> = Supplier<InputStream> { Base64.getDecoder().decode(privateKey).inputStream() }
+    private val privateKeySupplier: Supplier<InputStream> =
+        Supplier<InputStream> { Base64.getDecoder().decode(privateKey).inputStream() }
     val authProvider: SimpleAuthenticationDetailsProvider by lazy {
         SimpleAuthenticationDetailsProvider.builder()
             .tenantId(tenancyOCID)
@@ -47,7 +49,14 @@ class OCIClient(
             .privateKeySupplier(privateKeySupplier)
             .build()
     }
-    private val client by lazy { ObjectStorageClient.builder().build(authProvider) }
+    private val client by lazy {
+        ObjectStorageClient.builder()
+            .clientConfigurator {
+                it.property(JerseyClientProperties.USE_APACHE_CONNECTOR, false) // Disables Apache Connector
+            }
+            .isStreamWarningEnabled(false) // Disables stream warning presented about Apache Connector
+            .build(authProvider)
+    }
 
     /**
      * Retrieves the contents of the object found at [fileName] in the infx-shared bucket. If [fileName] is null,

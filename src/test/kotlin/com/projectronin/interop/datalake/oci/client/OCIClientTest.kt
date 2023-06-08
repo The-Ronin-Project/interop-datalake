@@ -1,6 +1,9 @@
 package com.projectronin.interop.datalake.oci.client
 
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider.SimpleAuthenticationDetailsProviderBuilder
+import com.oracle.bmc.http.ClientConfigurator
+import com.oracle.bmc.http.client.HttpClientBuilder
+import com.oracle.bmc.http.client.jersey.JerseyClientProperties
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
@@ -10,8 +13,11 @@ import com.oracle.bmc.objectstorage.responses.PutObjectResponse
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.mockkStatic
+import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkAll
+import io.mockk.verify
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -250,6 +256,49 @@ class OCIClientTest {
         every { client getProperty "client" } returns mockObjectStorageClient
         every { client.uploadToDatalake("test", "content") } answers { callOriginal() }
         assertFalse((client.uploadToDatalake("test", "content")))
+    }
+
+    @Test
+    fun `client is constructed properly`() {
+        val mockRequest = mockk<PutObjectRequest> {}
+        mockkConstructor(PutObjectRequest.Builder::class)
+        val mockBuilder = mockk<PutObjectRequest.Builder> {
+            every { namespaceName("namespace") } returns this
+            every { bucketName("datalakebucket") } returns this
+            every { putObjectBody(any()) } returns this
+            every { build() } returns mockRequest
+        }
+        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
+
+        val mockResponse = mockk<PutObjectResponse> {
+            every { __httpStatusCode__ } returns 200
+        }
+        val mockObjectStorageClient = mockk<ObjectStorageClient> {
+            every { putObject(mockRequest) } returns mockResponse
+        }
+
+        mockkStatic(ObjectStorageClient::class)
+        val clientConfiguratorSlot = slot<ClientConfigurator>()
+        val mockClientBuilder = mockk<ObjectStorageClient.Builder>() {
+            every { clientConfigurator(capture(clientConfiguratorSlot)) } returns this
+            every { isStreamWarningEnabled(any()) } returns this
+            every { build(any()) } returns mockObjectStorageClient
+        }
+        every { ObjectStorageClient.builder() } returns mockClientBuilder
+
+        val mockInputStream = mockk<InputStream> {}
+
+        val client = spyk(testClient)
+        every { client.upload("datalakebucket", "test", mockInputStream) } answers { callOriginal() }
+        assertTrue(client.upload("datalakebucket", "test", mockInputStream))
+
+        verify(exactly = 1) { mockClientBuilder.isStreamWarningEnabled(false) }
+
+        val httpClientBuilder = mockk<HttpClientBuilder>(relaxed = true)
+        val clientConfigurator = clientConfiguratorSlot.captured
+        clientConfigurator.customizeClient(httpClientBuilder)
+
+        verify(exactly = 1) { httpClientBuilder.property(JerseyClientProperties.USE_APACHE_CONNECTOR, false) }
     }
 
     @AfterEach
