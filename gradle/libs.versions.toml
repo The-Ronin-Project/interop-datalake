@@ -2,7 +2,7 @@
 interop-common = "com.projectronin.interop:interop-common:3.9.1"
 interop-commonJackson = "com.projectronin.interop:interop-common-jackson:3.9.1"
 
-interop-fhir = "com.projectronin.interop.fhir:interop-fhir:8.2.1"
+interop-fhir = "com.projectronin.interop.fhir:interop-fhir:8.4.0"
 
 kotlinx-coroutines-core = "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1"
 mockk = "io.mockk:mockk:1.13.5"
