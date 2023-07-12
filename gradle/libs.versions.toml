@@ -1,14 +1,37 @@
+[versions]
+interop-common = "3.9.1"
+interop-fhir = "8.5.0"
+
+interop-gradle = "3.2.0"
+
+kotlinx-coroutines = "1.7.1"
+mockk = "1.13.5"
+mockserver-client-java = "5.15.0"
+
+oci = "3.18.0"
+# @pin 5.3.28
+spring-framework-bom = "5.3.28"
+testcontainers-bom = "1.18.3"
+
 [libraries]
-interop-common = "com.projectronin.interop:interop-common:3.9.1"
-interop-commonJackson = "com.projectronin.interop:interop-common-jackson:3.9.1"
+interop-common = { module = "com.projectronin.interop:interop-common", version.ref = "interop-common" }
+interop-commonJackson = { module = "com.projectronin.interop:interop-common-jackson", version.ref = "interop-common" }
 
-interop-fhir = "com.projectronin.interop.fhir:interop-fhir:8.4.0"
+interop-fhir = { module = "com.projectronin.interop.fhir:interop-fhir", version.ref = "interop-fhir" }
 
-kotlinx-coroutines-core = "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1"
-mockk = "io.mockk:mockk:1.13.5"
-mockserver-client-java = "org.mock-server:mockserver-client-java-no-dependencies:5.15.0"
-oci-common = "com.oracle.oci.sdk:oci-java-sdk-common:3.18.0"
-oci-http-client = "com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:3.18.0"
-oci-objectstorage = "com.oracle.oci.sdk:oci-java-sdk-objectstorage:3.18.0"
-spring-framework-bom = "org.springframework:spring-framework-bom:5.3.23"
-testcontainers-bom = "org.testcontainers:testcontainers-bom:1.18.3"
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+mockserver-client-java = { module = "org.mock-server:mockserver-client-java-no-dependencies", version.ref = "mockserver-client-java" }
+oci-common = { module = "com.oracle.oci.sdk:oci-java-sdk-common", version.ref = "oci" }
+oci-http-client = { module = "com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey", version.ref = "oci" }
+oci-objectstorage = { module = "com.oracle.oci.sdk:oci-java-sdk-objectstorage", version.ref = "oci" }
+spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "spring-framework-bom" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers-bom" }
+
+[plugins]
+interop-gradle-base = { id = "com.projectronin.interop.gradle.base", version.ref = "interop-gradle" }
+interop-gradle-integration = { id = "com.projectronin.interop.gradle.integration", version.ref = "interop-gradle" }
+interop-gradle-junit = { id = "com.projectronin.interop.gradle.junit", version.ref = "interop-gradle" }
+interop-gradle-publish = { id = "com.projectronin.interop.gradle.publish", version.ref = "interop-gradle" }
+interop-gradle-spring = { id = "com.projectronin.interop.gradle.spring", version.ref = "interop-gradle" }
+interop-version-catalog = { id = "com.projectronin.interop.gradle.version-catalog-update", version.ref = "interop-gradle" }
