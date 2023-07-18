@@ -1,14 +1,11 @@
 [versions]
 interop-common = "3.9.1"
-interop-fhir = "8.5.0"
-
+interop-fhir = "8.7.0"
 interop-gradle = "3.2.0"
-
-kotlinx-coroutines = "1.7.1"
+kotlinx-coroutines = "1.7.2"
 mockk = "1.13.5"
 mockserver-client-java = "5.15.0"
-
-oci = "3.18.0"
+oci = "3.19.0"
 # @pin 5.3.28
 spring-framework-bom = "5.3.28"
 testcontainers-bom = "1.18.3"
@@ -16,9 +13,7 @@ testcontainers-bom = "1.18.3"
 [libraries]
 interop-common = { module = "com.projectronin.interop:interop-common", version.ref = "interop-common" }
 interop-commonJackson = { module = "com.projectronin.interop:interop-common-jackson", version.ref = "interop-common" }
-
 interop-fhir = { module = "com.projectronin.interop.fhir:interop-fhir", version.ref = "interop-fhir" }
-
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 mockserver-client-java = { module = "org.mock-server:mockserver-client-java-no-dependencies", version.ref = "mockserver-client-java" }
@@ -29,7 +24,6 @@ spring-framework-bom = { module = "org.springframework:spring-framework-bom", ve
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers-bom" }
 
 [plugins]
-interop-gradle-base = { id = "com.projectronin.interop.gradle.base", version.ref = "interop-gradle" }
 interop-gradle-integration = { id = "com.projectronin.interop.gradle.integration", version.ref = "interop-gradle" }
 interop-gradle-junit = { id = "com.projectronin.interop.gradle.junit", version.ref = "interop-gradle" }
 interop-gradle-publish = { id = "com.projectronin.interop.gradle.publish", version.ref = "interop-gradle" }
