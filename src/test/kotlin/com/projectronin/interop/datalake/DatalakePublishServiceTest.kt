@@ -2,8 +2,10 @@ package com.projectronin.interop.datalake
 
 import com.projectronin.interop.common.jackson.JacksonManager
 import com.projectronin.interop.datalake.oci.client.OCIClient
+import com.projectronin.interop.fhir.r4.datatype.primitive.Code
 import com.projectronin.interop.fhir.r4.datatype.primitive.Id
 import com.projectronin.interop.fhir.r4.datatype.primitive.asFHIR
+import com.projectronin.interop.fhir.r4.resource.Binary
 import com.projectronin.interop.fhir.r4.resource.Location
 import com.projectronin.interop.fhir.r4.resource.Practitioner
 import io.mockk.every
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.time.LocalDate
@@ -123,6 +126,26 @@ class DatalakePublishServiceTest {
         } returns true
         every { mockClient.getDatalakeFullURL(any()) } returns "http://objectstorage"
         val response = service.publishRawData(tenantId, "json data", "http://Epic.com")
+        assertTrue(response.contains("http://objectstorage"))
+    }
+
+    @Test
+    fun `binary publish`() {
+        every {
+            mockClient.uploadToDatalake(
+                any(),
+                any()
+            )
+        } returns true
+        val mockBinary = Binary(id = Id("12345"), contentType = Code("1"))
+        every { mockClient.getDatalakeFullURL(any()) } returns "http://objectstorage"
+        assertDoesNotThrow { service.publishBinaryData(tenantId, listOf(mockBinary)) }
+    }
+
+    @Test
+    fun `full datalake URL`() {
+        every { mockClient.getDatalakeFullURL(any()) } returns "http://objectstorage"
+        val response = service.getDatalakeFullURL("filepath!")
         assertTrue(response.contains("http://objectstorage"))
     }
 
