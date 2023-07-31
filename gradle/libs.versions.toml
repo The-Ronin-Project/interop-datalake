@@ -1,11 +1,11 @@
 [versions]
-interop-common = "3.9.1"
+interop-common = "3.10.0"
 interop-fhir = "8.7.1"
 interop-gradle = "3.2.0"
-kotlinx-coroutines = "1.7.2"
+kotlinx-coroutines = "1.7.3"
 mockk = "1.13.5"
 mockserver-client-java = "5.15.0"
-oci = "3.20.0"
+oci = "3.21.0"
 # @pin 5.3.28
 spring-framework-bom = "5.3.28"
 testcontainers-bom = "1.18.3"
