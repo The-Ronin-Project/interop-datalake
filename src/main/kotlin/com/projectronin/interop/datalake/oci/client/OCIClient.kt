@@ -6,13 +6,16 @@ import com.oracle.bmc.http.client.jersey.JerseyClientProperties
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
+import com.oracle.bmc.objectstorage.requests.HeadObjectRequest
 import com.oracle.bmc.objectstorage.requests.PutObjectRequest
+import com.oracle.bmc.objectstorage.responses.HeadObjectResponse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.net.URI
 import java.util.Base64
 import java.util.function.Supplier
 
@@ -136,4 +139,61 @@ class OCIClient(
         val inputStream = client.getObject(getObjectRequest).inputStream
         return inputStream?.bufferedReader().use { it?.readText() }
     }
+
+    /**
+     * Retrieves the contents of the object found at [url].
+     * Expects url with path of form: /n/namespace/b/bucket/o/filename
+     */
+    fun getObjectBody(url: URI): String? = runCatching {
+        val (bucket, fileName) = getBucketAndFilenameFromURI(url)
+        getObjectBody(bucket, fileName)
+    }.getOrNull()
+
+    /**
+     * Retrieves the contents of object from the data lake with name [fileName]
+     */
+    fun getObjectBody(fileName: String): String? = getObjectBody(datalakeBucket, fileName)
+
+    /**
+     * Retrieves the meta data of the object found at [fileName].
+     */
+    fun getObjectDetails(bucket: String, fileName: String): HeadObjectResponse {
+        val headObjectRequest = HeadObjectRequest.builder()
+            .objectName(fileName)
+            .namespaceName(namespace)
+            .bucketName(bucket)
+            .build()
+
+        return client.headObject(headObjectRequest)
+    }
+
+    /**
+     * Retrieves whether the object exists at the given [url].
+     * Expects url with path of form: /n/namespace/b/bucket/o/filename
+     */
+    fun ObjectExists(url: URI): Boolean {
+        val (bucket, fileName) = getBucketAndFilenameFromURI(url)
+        return getObjectDetails(bucket, fileName).let {
+            it.__httpStatusCode__ == 200
+        }
+    }
+
+    /**
+     * Retrieves whether the object exists by [fileName]
+     */
+    fun ObjectExists(fileName: String): Boolean = getObjectDetails(
+        datalakeBucket,
+        fileName
+    ).let {
+        it.__httpStatusCode__ == 200
+    }
+
+    /**
+     * Returns [Pair] of bucket and fileName from an OCI object url
+     */
+    private fun getBucketAndFilenameFromURI(url: URI): Pair<String, String> =
+        url.rawPath
+            .removePrefix("/")
+            .split('/')
+            .slice(setOf(3, 5)).let { Pair(it.first(), it.last()) }
 }
