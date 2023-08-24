@@ -5,6 +5,10 @@ import com.projectronin.interop.common.jackson.JacksonUtil
 import com.projectronin.interop.datalake.oci.client.OCIClient
 import com.projectronin.interop.fhir.r4.resource.Binary
 import com.projectronin.interop.fhir.r4.resource.Resource
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.stereotype.Service
@@ -46,20 +50,27 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
         val date = LocalDate.now()
         val resourcesToWrite = resources.filter { it.id?.value?.isNotEmpty() ?: false }
 
-        val jobs = resourcesToWrite.map {
-            taskExecutor.submit {
-                val resourceType = it.resourceType
-                val resourceId = it.id?.value!!
-                val filePathString =
-                    "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${date.format(DateTimeFormatter.ISO_LOCAL_DATE)}/$resourceId.json"
-                logger.debug { "Publishing Ronin clinical data to $filePathString" }
-                val serialized = JacksonManager.objectMapper.writeValueAsString(it)
-                ociClient.uploadToDatalake(filePathString, serialized)
+        val context = taskExecutor.asCoroutineDispatcher()
+        runBlocking {
+            val jobs = resourcesToWrite.map {
+                async(context) {
+                    val resourceType = it.resourceType
+                    val resourceId = it.id?.value!!
+                    val filePathString =
+                        "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${
+                        date.format(
+                            DateTimeFormatter.ISO_LOCAL_DATE
+                        )
+                        }/$resourceId.json"
+                    logger.debug { "Publishing Ronin clinical data to $filePathString" }
+                    val serialized = JacksonManager.objectMapper.writeValueAsString(it)
+                    ociClient.uploadToDatalake(filePathString, serialized)
+                }
             }
-        }
 
-        // Force completion of each job
-        jobs.forEach { it.get(20, TimeUnit.SECONDS) }
+            // Force completion of each job
+            jobs.awaitAll()
+        }
 
         if (resourcesToWrite.size < resources.size) {
             throw IllegalStateException(

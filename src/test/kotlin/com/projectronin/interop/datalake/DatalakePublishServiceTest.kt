@@ -22,19 +22,14 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.time.LocalDate
-import java.util.concurrent.TimeUnit
 
 class DatalakePublishServiceTest {
     private val mockClient = mockk<OCIClient>()
-    private val mockExecutor = mockk<ThreadPoolTaskExecutor> {
-        every { submit(any()) } answers {
-            val result = firstArg<Runnable>().run()
-            mockk {
-                every { get(20, TimeUnit.SECONDS) } returns result
-            }
-        }
+    private val executor = ThreadPoolTaskExecutor().apply {
+        corePoolSize = 1
+        initialize()
     }
-    private val service = DatalakePublishService(mockClient, mockExecutor)
+    private val service = DatalakePublishService(mockClient, executor)
     private val tenantId = "mockTenant"
 
     @Test
