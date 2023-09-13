@@ -4,7 +4,7 @@ import com.projectronin.interop.common.collection.associateWithNonNull
 import com.projectronin.interop.common.jackson.JacksonUtil
 import com.projectronin.interop.datalake.oci.client.OCIClient
 import com.projectronin.interop.fhir.r4.resource.Binary
-import org.jvnet.hk2.annotations.Service
+import org.springframework.stereotype.Service
 import java.net.URI
 
 /**
