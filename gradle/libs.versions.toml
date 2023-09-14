@@ -5,7 +5,7 @@ interop-gradle = "3.2.0"
 kotlinx-coroutines = "1.7.3"
 mockk = "1.13.7"
 mockserver-client-java = "5.15.0"
-oci = "3.25.0"
+oci = "3.25.1"
 # @pin 5.3.28
 spring-framework-bom = "5.3.28"
 testcontainers-bom = "1.19.0"
