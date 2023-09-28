@@ -31,21 +31,21 @@ class DatalakeRetrieveService(private val ociClient: OCIClient) {
      * Retrieves a [Binary] object by [tenantId] and [resourceId]
      */
     fun retrieveBinaryData(tenantId: String, resourceId: String): Binary? =
-        ociClient.getObjectBody(tenantAndResouceToFilePath(tenantId, resourceId))?.let {
+        ociClient.getObjectBody(tenantAndResourceToFilePath(tenantId, resourceId))?.let {
             JacksonUtil.readJsonObject(it, Binary::class)
         }
 
     /**
      * Returns whether an object exists at [url]
      */
-    fun objectExists(url: URI): Boolean = ociClient.ObjectExists(url)
+    fun objectExists(url: URI): Boolean = ociClient.objectExists(url)
 
     /**
      * Returns whether an [Binary] object exists with [tenantId] and [resourceId]
      */
     fun binaryExists(tenantId: String, resourceId: String): Boolean =
-        ociClient.ObjectExists(tenantAndResouceToFilePath(tenantId, resourceId))
+        ociClient.objectExists(tenantAndResourceToFilePath(tenantId, resourceId))
 
-    private fun tenantAndResouceToFilePath(tenantId: String, resourceId: String): String =
+    private fun tenantAndResourceToFilePath(tenantId: String, resourceId: String): String =
         "ehr/Binary/fhir_tenant_id=$tenantId/$resourceId.json"
 }

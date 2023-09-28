@@ -1,5 +1,6 @@
 package com.projectronin.interop.datalake
 
+import com.oracle.bmc.model.BmcException
 import com.projectronin.interop.common.jackson.JacksonUtil
 import com.projectronin.interop.datalake.oci.client.OCIClient
 import com.projectronin.interop.fhir.r4.datatype.primitive.Code
@@ -14,7 +15,9 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.net.URI
+import java.security.InvalidAlgorithmParameterException
 
 class DatalakeRetrieveServiceTest {
     private val mockClient = mockk<OCIClient>()
@@ -148,6 +151,29 @@ class DatalakeRetrieveServiceTest {
     }
 
     @Test
+    fun `retrieve by url throws exceptions`() {
+        val binaryUrl1 = URI(String.format(binaryUrl, binaryFile1))
+        val binaryUrl2 = URI(String.format(binaryUrl, binaryFile2))
+        val binaryUrl3 = URI(String.format(binaryUrl, binaryFile3))
+
+        every {
+            mockClient.getObjectBody(binaryUrl1)
+        } throws BmcException(500, "BucketFellOffACliff", "", "")
+
+        every {
+            mockClient.getObjectBody(binaryUrl2)
+        } throws InvalidAlgorithmParameterException()
+
+        every {
+            mockClient.getObjectBody(binaryUrl3)
+        } throws ReflectiveOperationException()
+
+        assertThrows<BmcException> { service.retrieveBinaryData(binaryUrl1) }
+        assertThrows<InvalidAlgorithmParameterException> { service.retrieveBinaryData(binaryUrl2) }
+        assertThrows<ReflectiveOperationException> { service.retrieveBinaryData(binaryUrl3) }
+    }
+
+    @Test
     fun `retrieve by tenantId and resourceId returns Binary`() {
         val binaryJson = JacksonUtil.writeJsonValue(binary1)
         val arg = "ehr/Binary/fhir_tenant_id=$tenantId/$resourceId.json"
@@ -179,7 +205,7 @@ class DatalakeRetrieveServiceTest {
         val objectUrl = URI(String.format(binaryUrl, binaryFile1))
 
         every {
-            mockClient.ObjectExists(objectUrl)
+            mockClient.objectExists(objectUrl)
         } returns true
 
         val result = service.objectExists(objectUrl)
@@ -191,7 +217,7 @@ class DatalakeRetrieveServiceTest {
         val objectUrl = URI(String.format(binaryUrl, binaryFile1))
 
         every {
-            mockClient.ObjectExists(objectUrl)
+            mockClient.objectExists(objectUrl)
         } returns false
 
         val result = service.objectExists(objectUrl)
@@ -203,7 +229,7 @@ class DatalakeRetrieveServiceTest {
         val arg = "ehr/Binary/fhir_tenant_id=$tenantId/$resourceId.json"
 
         every {
-            mockClient.ObjectExists(arg)
+            mockClient.objectExists(arg)
         } returns true
 
         val result = service.binaryExists(tenantId, resourceId)
@@ -215,7 +241,7 @@ class DatalakeRetrieveServiceTest {
         val arg = "ehr/Binary/fhir_tenant_id=$tenantId/$resourceId.json"
 
         every {
-            mockClient.ObjectExists(arg)
+            mockClient.objectExists(arg)
         } returns false
 
         val result = service.binaryExists(tenantId, resourceId)

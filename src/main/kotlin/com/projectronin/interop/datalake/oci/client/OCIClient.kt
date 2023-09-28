@@ -136,18 +136,31 @@ class OCIClient(
             .namespaceName(namespace)
             .bucketName(bucket)
             .build()
-        val inputStream = client.getObject(getObjectRequest).inputStream
-        return inputStream?.bufferedReader().use { it?.readText() }
+
+        val result = try {
+            val inputStream = client.getObject(getObjectRequest).inputStream
+            inputStream?.bufferedReader().use { it?.readText() }
+        } catch (exception: BmcException) {
+            when (exception.statusCode) {
+                404 -> null
+                else -> throw exception
+            }
+        }
+
+        return result
     }
 
     /**
      * Retrieves the contents of the object found at [url].
      * Expects url with path of form: /n/namespace/b/bucket/o/filename
      */
-    fun getObjectBody(url: URI): String? = runCatching {
-        val (bucket, fileName) = getBucketAndFilenameFromURI(url)
-        getObjectBody(bucket, fileName)
-    }.getOrNull()
+    fun getObjectBody(url: URI): String? {
+        val (bucket, fileName) = runCatching {
+            getBucketAndFilenameFromURI(url)
+        }.getOrDefault(Pair("", ""))
+
+        return if (bucket.isBlank() || fileName.isBlank()) null else getObjectBody(bucket, fileName)
+    }
 
     /**
      * Retrieves the contents of object from the data lake with name [fileName]
@@ -171,7 +184,7 @@ class OCIClient(
      * Retrieves whether the object exists at the given [url].
      * Expects url with path of form: /n/namespace/b/bucket/o/filename
      */
-    fun ObjectExists(url: URI): Boolean {
+    fun objectExists(url: URI): Boolean {
         val (bucket, fileName) = getBucketAndFilenameFromURI(url)
         return getObjectDetails(bucket, fileName).let {
             it.__httpStatusCode__ == 200
@@ -181,7 +194,7 @@ class OCIClient(
     /**
      * Retrieves whether the object exists by [fileName]
      */
-    fun ObjectExists(fileName: String): Boolean = getObjectDetails(
+    fun objectExists(fileName: String): Boolean = getObjectDetails(
         datalakeBucket,
         fileName
     ).let {
