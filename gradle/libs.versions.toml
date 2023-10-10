@@ -1,6 +1,6 @@
 [versions]
 interop-common = "3.12.2"
-interop-fhir = "8.10.1"
+interop-fhir = "8.10.2"
 interop-gradle = "3.2.0"
 kotlinx-coroutines = "1.7.3"
 mockk = "1.13.8"
