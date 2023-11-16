@@ -5,10 +5,10 @@ interop-gradle = "3.3.0"
 kotlinx-coroutines = "1.7.3"
 mockk = "1.13.8"
 mockserver-client-java = "5.15.0"
-oci = "3.28.1"
+oci = "3.29.0"
 # @pin 5.3.28
 spring-framework-bom = "5.3.28"
-testcontainers-bom = "1.19.1"
+testcontainers-bom = "1.19.2"
 
 [libraries]
 interop-common = { module = "com.projectronin.interop:interop-common", version.ref = "interop-common" }
