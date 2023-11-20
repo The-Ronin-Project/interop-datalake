@@ -1,5 +1,5 @@
 [versions]
-interop-common = "3.13.3"
+interop-common = "3.13.4"
 interop-fhir = "8.11.0"
 interop-gradle = "3.3.0"
 kotlinx-coroutines = "1.7.3"
