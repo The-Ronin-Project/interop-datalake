@@ -8,7 +8,7 @@ mockserver-client-java = "5.15.0"
 oci = "3.29.0"
 # @pin 5.3.28
 spring-framework-bom = "5.3.28"
-testcontainers-bom = "1.19.2"
+testcontainers-bom = "1.19.3"
 
 [libraries]
 interop-common = { module = "com.projectronin.interop:interop-common", version.ref = "interop-common" }
