@@ -39,7 +39,7 @@ class OCIClient(
     @Value("\${oci.publish.bucket.name}")
     private val datalakeBucket: String,
     @Value("\${oci.region:us-phoenix-1}")
-    private val regionId: String
+    private val regionId: String,
 ) {
     private val privateKeySupplier: Supplier<InputStream> =
         Supplier<InputStream> { Base64.getDecoder().decode(privateKey).inputStream() }
@@ -74,7 +74,10 @@ class OCIClient(
      * Upload the string found in [data] to [fileName] to the datalake bucket
      *  Returns true if it was successful
      */
-    fun uploadToDatalake(fileName: String, data: String): Boolean {
+    fun uploadToDatalake(
+        fileName: String,
+        data: String,
+    ): Boolean {
         return upload(datalakeBucket, fileName, data)
     }
 
@@ -85,14 +88,19 @@ class OCIClient(
      * Upload the string found in [data] to [fileName]
      * Returns true if it was successful
      */
-    fun upload(bucket: String, fileName: String, data: String): Boolean = uploadObjectRequest(
-        PutObjectRequest.builder()
-            .objectName(fileName)
-            .putObjectBody(ByteArrayInputStream(data.toByteArray()))
-            .namespaceName(namespace)
-            .bucketName(bucket)
-            .build()
-    )
+    fun upload(
+        bucket: String,
+        fileName: String,
+        data: String,
+    ): Boolean =
+        uploadObjectRequest(
+            PutObjectRequest.builder()
+                .objectName(fileName)
+                .putObjectBody(ByteArrayInputStream(data.toByteArray()))
+                .namespaceName(namespace)
+                .bucketName(bucket)
+                .build(),
+        )
 
     /**
      * Upload the stream found in [stream] to [fileName].  Useful when we need to upload a large file.  If the file is
@@ -100,52 +108,63 @@ class OCIClient(
      * system, use `FileInputStream("name")`.
      * Returns true if it was successful.
      */
-    fun upload(bucket: String, fileName: String, stream: InputStream): Boolean = uploadObjectRequest(
-        PutObjectRequest.builder()
-            .objectName(fileName)
-            .putObjectBody(stream)
-            .namespaceName(namespace)
-            .bucketName(bucket)
-            .build()
-    )
+    fun upload(
+        bucket: String,
+        fileName: String,
+        stream: InputStream,
+    ): Boolean =
+        uploadObjectRequest(
+            PutObjectRequest.builder()
+                .objectName(fileName)
+                .putObjectBody(stream)
+                .namespaceName(namespace)
+                .bucketName(bucket)
+                .build(),
+        )
 
     private fun uploadObjectRequest(putObjectRequest: PutObjectRequest): Boolean {
         // OCI JDK natively supports retrying, but errors occasionally when something unexpected happens
         // https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/javasdkconcepts.htm
 
-        val responseStatusCode = try {
-            client.putObject(putObjectRequest).__httpStatusCode__
-            // client side exception in the OCI JDK
-        } catch (bmcException: BmcException) {
-            if (bmcException.statusCode == -1) {
-                runBlocking { delay(5000) }
+        val responseStatusCode =
+            try {
                 client.putObject(putObjectRequest).__httpStatusCode__
-            } else {
-                null
+                // client side exception in the OCI JDK
+            } catch (bmcException: BmcException) {
+                if (bmcException.statusCode == -1) {
+                    runBlocking { delay(5000) }
+                    client.putObject(putObjectRequest).__httpStatusCode__
+                } else {
+                    null
+                }
             }
-        }
         return responseStatusCode in (200..202)
     }
 
     /**
      * Retrieves the contents of the object found at [fileName]
      */
-    fun getObjectBody(bucket: String, fileName: String): String? {
-        val getObjectRequest = GetObjectRequest.builder()
-            .objectName(fileName)
-            .namespaceName(namespace)
-            .bucketName(bucket)
-            .build()
+    fun getObjectBody(
+        bucket: String,
+        fileName: String,
+    ): String? {
+        val getObjectRequest =
+            GetObjectRequest.builder()
+                .objectName(fileName)
+                .namespaceName(namespace)
+                .bucketName(bucket)
+                .build()
 
-        val result = try {
-            val inputStream = client.getObject(getObjectRequest).inputStream
-            inputStream?.bufferedReader().use { it?.readText() }
-        } catch (exception: BmcException) {
-            when (exception.statusCode) {
-                404 -> null
-                else -> throw exception
+        val result =
+            try {
+                val inputStream = client.getObject(getObjectRequest).inputStream
+                inputStream?.bufferedReader().use { it?.readText() }
+            } catch (exception: BmcException) {
+                when (exception.statusCode) {
+                    404 -> null
+                    else -> throw exception
+                }
             }
-        }
 
         return result
     }
@@ -155,9 +174,10 @@ class OCIClient(
      * Expects url with path of form: /n/namespace/b/bucket/o/filename
      */
     fun getObjectBody(url: URI): String? {
-        val (bucket, fileName) = runCatching {
-            getBucketAndFilenameFromURI(url)
-        }.getOrDefault(Pair("", ""))
+        val (bucket, fileName) =
+            runCatching {
+                getBucketAndFilenameFromURI(url)
+            }.getOrDefault(Pair("", ""))
 
         return if (bucket.isBlank() || fileName.isBlank()) null else getObjectBody(bucket, fileName)
     }
@@ -170,12 +190,16 @@ class OCIClient(
     /**
      * Retrieves the meta data of the object found at [fileName].
      */
-    fun getObjectDetails(bucket: String, fileName: String): HeadObjectResponse {
-        val headObjectRequest = HeadObjectRequest.builder()
-            .objectName(fileName)
-            .namespaceName(namespace)
-            .bucketName(bucket)
-            .build()
+    fun getObjectDetails(
+        bucket: String,
+        fileName: String,
+    ): HeadObjectResponse {
+        val headObjectRequest =
+            HeadObjectRequest.builder()
+                .objectName(fileName)
+                .namespaceName(namespace)
+                .bucketName(bucket)
+                .build()
 
         return client.headObject(headObjectRequest)
     }
@@ -194,12 +218,13 @@ class OCIClient(
     /**
      * Retrieves whether the object exists by [fileName]
      */
-    fun objectExists(fileName: String): Boolean = getObjectDetails(
-        datalakeBucket,
-        fileName
-    ).let {
-        it.__httpStatusCode__ == 200
-    }
+    fun objectExists(fileName: String): Boolean =
+        getObjectDetails(
+            datalakeBucket,
+            fileName,
+        ).let {
+            it.__httpStatusCode__ == 200
+        }
 
     /**
      * Returns [Pair] of bucket and fileName from an OCI object url

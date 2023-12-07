@@ -25,10 +25,11 @@ import java.time.LocalDate
 
 class DatalakePublishServiceTest {
     private val mockClient = mockk<OCIClient>()
-    private val executor = ThreadPoolTaskExecutor().apply {
-        corePoolSize = 1
-        initialize()
-    }
+    private val executor =
+        ThreadPoolTaskExecutor().apply {
+            corePoolSize = 1
+            initialize()
+        }
     private val service = DatalakePublishService(mockClient, executor)
     private val tenantId = "mockTenant"
 
@@ -43,22 +44,26 @@ class DatalakePublishServiceTest {
         mockkConstructor(LocalDate::class)
         mockkStatic(LocalDate::class)
 
-        val mockkLocalDate = mockk<LocalDate> {
-            every { format(any()) } returns "1990-01-03"
-        }
+        val mockkLocalDate =
+            mockk<LocalDate> {
+                every { format(any()) } returns "1990-01-03"
+            }
         every { LocalDate.now() } returns mockkLocalDate // LocalDate.of(1990,1,3)
 
-        val location1 = Location(
-            id = Id("abc"),
-            name = "Location1".asFHIR()
-        )
-        val location2 = Location(
-            id = Id("def"),
-            name = "Location2".asFHIR()
-        )
-        val practitioner = Practitioner(
-            id = Id("abc")
-        )
+        val location1 =
+            Location(
+                id = Id("abc"),
+                name = "Location1".asFHIR(),
+            )
+        val location2 =
+            Location(
+                id = Id("def"),
+                name = "Location2".asFHIR(),
+            )
+        val practitioner =
+            Practitioner(
+                id = Id("abc"),
+            )
         val filePathString =
             "ehr/__RESOURCETYPE__/fhir_tenant_id=mockTenant/_date=1990-01-03/__FHIRID__.json"
         val locationFilePathString = filePathString.replace("__RESOURCETYPE__", "location")
@@ -67,19 +72,19 @@ class DatalakePublishServiceTest {
         every {
             mockClient.uploadToDatalake(
                 locationFilePathString.replace("__FHIRID__", "abc"),
-                objectMapper.writeValueAsString(location1)
+                objectMapper.writeValueAsString(location1),
             )
         } returns true
         every {
             mockClient.uploadToDatalake(
                 locationFilePathString.replace("__FHIRID__", "def"),
-                objectMapper.writeValueAsString(location2)
+                objectMapper.writeValueAsString(location2),
             )
         } returns true
         every {
             mockClient.uploadToDatalake(
                 practitionerFilePathString.replace("__FHIRID__", "abc"),
-                objectMapper.writeValueAsString(practitioner)
+                objectMapper.writeValueAsString(practitioner),
             )
         } returns true
         service.publishFHIRR4(tenantId, listOf(location1, location2, practitioner))
@@ -89,12 +94,13 @@ class DatalakePublishServiceTest {
     @Test
     fun `cannot publish a FHIR R4 resource that has no id`() {
         val badResource = Location()
-        val exception = assertThrows<IllegalStateException> {
-            service.publishFHIRR4(tenantId, listOf(badResource))
-        }
+        val exception =
+            assertThrows<IllegalStateException> {
+                service.publishFHIRR4(tenantId, listOf(badResource))
+            }
         assertEquals(
             "Did not publish all FHIR resources to datalake for tenant $tenantId: Some resources lacked FHIR IDs. Errors were logged.",
-            exception.message
+            exception.message,
         )
     }
 
@@ -102,12 +108,13 @@ class DatalakePublishServiceTest {
     fun `cannot publish a FHIR R4 resource that has a null id or value`() {
         val badResource = Location(id = null)
         val badResource2 = Location(id = Id(value = ""))
-        val exception = assertThrows<IllegalStateException> {
-            service.publishFHIRR4(tenantId, listOf(badResource, badResource2))
-        }
+        val exception =
+            assertThrows<IllegalStateException> {
+                service.publishFHIRR4(tenantId, listOf(badResource, badResource2))
+            }
         assertEquals(
             "Did not publish all FHIR resources to datalake for tenant $tenantId: Some resources lacked FHIR IDs. Errors were logged.",
-            exception.message
+            exception.message,
         )
     }
 
@@ -116,7 +123,7 @@ class DatalakePublishServiceTest {
         every {
             mockClient.uploadToDatalake(
                 any(),
-                any()
+                any(),
             )
         } returns true
         every { mockClient.getDatalakeFullURL(any()) } returns "http://objectstorage"
@@ -129,7 +136,7 @@ class DatalakePublishServiceTest {
         every {
             mockClient.uploadToDatalake(
                 any(),
-                any()
+                any(),
             )
         } returns true
         val mockBinary = Binary(id = Id("12345"), contentType = Code("1"))

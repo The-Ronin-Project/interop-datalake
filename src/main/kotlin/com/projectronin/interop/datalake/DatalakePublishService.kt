@@ -40,7 +40,10 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
      *                  but expects all of them to have a defined ID
      * @throws IllegalStateException if any of the resources lacked FHIR id values so were not published.
      */
-    fun publishFHIRR4(tenantId: String, resources: List<Resource<*>>) {
+    fun publishFHIRR4(
+        tenantId: String,
+        resources: List<Resource<*>>,
+    ) {
         val root = "ehr"
         logger.info { "Publishing Ronin clinical data to datalake at $root" }
         if (resources.isEmpty()) {
@@ -52,21 +55,22 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
 
         val context = taskExecutor.asCoroutineDispatcher()
         runBlocking {
-            val jobs = resourcesToWrite.map {
-                async(context) {
-                    val resourceType = it.resourceType
-                    val resourceId = it.id?.value!!
-                    val filePathString =
-                        "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${
-                        date.format(
-                            DateTimeFormatter.ISO_LOCAL_DATE
-                        )
-                        }/$resourceId.json"
-                    logger.debug { "Publishing Ronin clinical data to $filePathString" }
-                    val serialized = JacksonManager.objectMapper.writeValueAsString(it)
-                    ociClient.uploadToDatalake(filePathString, serialized)
+            val jobs =
+                resourcesToWrite.map {
+                    async(context) {
+                        val resourceType = it.resourceType
+                        val resourceId = it.id?.value!!
+                        val filePathString =
+                            "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${
+                                date.format(
+                                    DateTimeFormatter.ISO_LOCAL_DATE,
+                                )
+                            }/$resourceId.json"
+                        logger.debug { "Publishing Ronin clinical data to $filePathString" }
+                        val serialized = JacksonManager.objectMapper.writeValueAsString(it)
+                        ociClient.uploadToDatalake(filePathString, serialized)
+                    }
                 }
-            }
 
             // Force completion of each job
             jobs.awaitAll()
@@ -74,7 +78,7 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
 
         if (resourcesToWrite.size < resources.size) {
             throw IllegalStateException(
-                "Did not publish all FHIR resources to datalake for tenant $tenantId: Some resources lacked FHIR IDs. Errors were logged."
+                "Did not publish all FHIR resources to datalake for tenant $tenantId: Some resources lacked FHIR IDs. Errors were logged.",
             )
         }
     }
@@ -86,23 +90,27 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
      * @param binaryList the Binary objects to store in OCI
      * @return The URL of the uploaded data.
      */
-    fun publishBinaryData(tenantId: String, binaryList: List<Binary>) {
-        val jobs = binaryList.map { binary ->
-            val filePathString = getBinaryFilepath(tenantId, binary.id!!.value!!)
-            logger.debug { "Publishing Binary data to $filePathString" }
-            taskExecutor.submit {
-                ociClient.uploadToDatalake(
-                    filePathString,
-                    JacksonUtil.writeJsonValue(binary)
-                )
+    fun publishBinaryData(
+        tenantId: String,
+        binaryList: List<Binary>,
+    ) {
+        val jobs =
+            binaryList.map { binary ->
+                val filePathString = getBinaryFilepath(tenantId, binary.id!!.value!!)
+                logger.debug { "Publishing Binary data to $filePathString" }
+                taskExecutor.submit {
+                    ociClient.uploadToDatalake(
+                        filePathString,
+                        JacksonUtil.writeJsonValue(binary),
+                    )
+                }
             }
-        }
         jobs.forEach { it.get(20, TimeUnit.SECONDS) }
     }
 
     fun getBinaryFilepath(
         tenantId: String,
-        resourceId: String
+        resourceId: String,
     ): String {
         return "ehr/Binary/fhir_tenant_id=$tenantId/$resourceId.json"
     }
@@ -120,7 +128,11 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
      * @param url The URL of the original API call
      * @return The URL of the uploaded data.
      */
-    fun publishRawData(tenantId: String, data: String, url: String): String {
+    fun publishRawData(
+        tenantId: String,
+        data: String,
+        url: String,
+    ): String {
         val transactionID = UUID.randomUUID().toString()
         val root = "raw_data_response"
         logger.info { "Publishing Ronin clinical data to datalake at $root" }
@@ -133,9 +145,9 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
                     RawDataWrapper(
                         url,
                         LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                        data
-                    )
-                )
+                        data,
+                    ),
+                ),
             )
         }
         return getDatalakeFullURL(filePathString)

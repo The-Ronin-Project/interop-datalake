@@ -8,7 +8,10 @@ private val logger = KotlinLogging.logger { }
  * To publish to the datalake, we need MSH.9.
  * @return a list with the messageType (like MDM) in position 0 and messageEvent (like T02) in position 1.
  */
-fun getMSH9(tenantId: String, message: String): List<String> {
+fun getMSH9(
+    tenantId: String,
+    message: String,
+): List<String> {
     // In every HL7v2 message and version, separators, and fields MSH.1 through MSH.9, are on line 1 in the same
     // positions. Message parsers like hapi Parser and Terser exist, but add complexity and overhead without value.
 

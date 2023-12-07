@@ -12,15 +12,15 @@ import java.net.URI
  */
 @Service
 class DatalakeRetrieveService(private val ociClient: OCIClient) {
-
     /**
      * Retrieves a map of [URI] to [Binary] object for each of the binary [urls]
      */
-    fun retrieveBinaryData(urls: List<URI>): Map<URI, Binary> = urls.associateWithNonNull {
-        ociClient.getObjectBody(it)?.let { binary ->
-            JacksonUtil.readJsonObject(binary, Binary::class)
+    fun retrieveBinaryData(urls: List<URI>): Map<URI, Binary> =
+        urls.associateWithNonNull {
+            ociClient.getObjectBody(it)?.let { binary ->
+                JacksonUtil.readJsonObject(binary, Binary::class)
+            }
         }
-    }
 
     /**
      * Retrieves a [Binary] object using its [url]
@@ -30,7 +30,10 @@ class DatalakeRetrieveService(private val ociClient: OCIClient) {
     /**
      * Retrieves a [Binary] object by [tenantId] and [resourceId]
      */
-    fun retrieveBinaryData(tenantId: String, resourceId: String): Binary? =
+    fun retrieveBinaryData(
+        tenantId: String,
+        resourceId: String,
+    ): Binary? =
         ociClient.getObjectBody(tenantAndResourceToFilePath(tenantId, resourceId))?.let {
             JacksonUtil.readJsonObject(it, Binary::class)
         }
@@ -43,9 +46,13 @@ class DatalakeRetrieveService(private val ociClient: OCIClient) {
     /**
      * Returns whether an [Binary] object exists with [tenantId] and [resourceId]
      */
-    fun binaryExists(tenantId: String, resourceId: String): Boolean =
-        ociClient.objectExists(tenantAndResourceToFilePath(tenantId, resourceId))
+    fun binaryExists(
+        tenantId: String,
+        resourceId: String,
+    ): Boolean = ociClient.objectExists(tenantAndResourceToFilePath(tenantId, resourceId))
 
-    private fun tenantAndResourceToFilePath(tenantId: String, resourceId: String): String =
-        "ehr/Binary/fhir_tenant_id=$tenantId/$resourceId.json"
+    private fun tenantAndResourceToFilePath(
+        tenantId: String,
+        resourceId: String,
+    ): String = "ehr/Binary/fhir_tenant_id=$tenantId/$resourceId.json"
 }
