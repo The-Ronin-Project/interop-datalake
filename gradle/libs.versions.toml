@@ -1,13 +1,12 @@
 [versions]
-interop-common = "3.13.4"
-interop-fhir = "8.11.0"
-interop-gradle = "3.4.0"
+interop-common = "4.0.0"
+interop-fhir = "9.0.0"
+interop-gradle = "4.0.0"
 kotlinx-coroutines = "1.7.3"
 mockk = "1.13.8"
 mockserver-client-java = "5.15.0"
-oci = "3.29.0"
-# @pin 5.3.28
-spring-framework-bom = "5.3.28"
+oci = "3.30.0"
+spring-framework-bom = "6.1.1"
 testcontainers-bom = "1.19.3"
 
 [libraries]
@@ -18,7 +17,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 mockserver-client-java = { module = "org.mock-server:mockserver-client-java-no-dependencies", version.ref = "mockserver-client-java" }
 oci-common = { module = "com.oracle.oci.sdk:oci-java-sdk-common", version.ref = "oci" }
-oci-http-client = { module = "com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey", version.ref = "oci" }
+oci-http-client = { module = "com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3", version.ref = "oci" }
 oci-objectstorage = { module = "com.oracle.oci.sdk:oci-java-sdk-objectstorage", version.ref = "oci" }
 spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "spring-framework-bom" }
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers-bom" }

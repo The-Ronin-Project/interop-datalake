@@ -2,7 +2,7 @@ package com.projectronin.interop.datalake.oci.client
 
 import com.oracle.bmc.Region
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider
-import com.oracle.bmc.http.client.jersey.JerseyClientProperties
+import com.oracle.bmc.http.client.jersey3.Jersey3ClientProperties
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
@@ -54,10 +54,11 @@ class OCIClient(
     }
     private val client by lazy {
         ObjectStorageClient.builder()
-            .clientConfigurator {
-                it.property(JerseyClientProperties.USE_APACHE_CONNECTOR, false) // Disables Apache Connector
+            .clientConfigurator { // Disables Apache Connector
+                it.property(Jersey3ClientProperties.USE_APACHE_CONNECTOR, false)
             }
-            .isStreamWarningEnabled(false) // Disables stream warning presented about Apache Connector
+            // Disables stream warning presented about Apache Connector
+            .isStreamWarningEnabled(false)
             .build(authProvider)
     }
 

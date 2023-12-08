@@ -3,7 +3,7 @@ package com.projectronin.interop.datalake.oci.client
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider.SimpleAuthenticationDetailsProviderBuilder
 import com.oracle.bmc.http.ClientConfigurator
 import com.oracle.bmc.http.client.HttpClientBuilder
-import com.oracle.bmc.http.client.jersey.JerseyClientProperties
+import com.oracle.bmc.http.client.jersey3.Jersey3ClientProperties
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
@@ -330,7 +330,7 @@ class OCIClientTest {
         val clientConfigurator = clientConfiguratorSlot.captured
         clientConfigurator.customizeClient(httpClientBuilder)
 
-        verify(exactly = 1) { httpClientBuilder.property(JerseyClientProperties.USE_APACHE_CONNECTOR, false) }
+        verify(exactly = 1) { httpClientBuilder.property(Jersey3ClientProperties.USE_APACHE_CONNECTOR, false) }
     }
 
     @Test
