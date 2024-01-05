@@ -55,22 +55,24 @@ class DatalakePublishServiceIT {
         java.util.Base64.getEncoder().encodeToString(
             this::class.java.getResource("/ExamplePEMPrivateKey.txt")!!.readText().replace("\\r", "")
                 .replace("\\n", "")
-                .toByteArray()
+                .toByteArray(),
         )
 
     // We have to mock the region to force this to our localhost.
-    private val region = mockk<Region> {
-        every { getEndpoint(ObjectStorageClient.SERVICE) } returns Optional.of(getMockserverUrl())
-    }
+    private val region =
+        mockk<Region> {
+            every { getEndpoint(ObjectStorageClient.SERVICE) } returns Optional.of(getMockserverUrl())
+        }
 
     private val ociClient =
         OCIClient(ociTenantId, ociUserId, fingerPrint, privateKey, namespace, infxbucketName, dlbucketName, regionId)
-    private val taskExecutor = ThreadPoolTaskExecutor().apply {
-        val processors = Runtime.getRuntime().availableProcessors()
-        corePoolSize = processors / 2
-        maxPoolSize = processors
-        initialize()
-    }
+    private val taskExecutor =
+        ThreadPoolTaskExecutor().apply {
+            val processors = Runtime.getRuntime().availableProcessors()
+            corePoolSize = processors / 2
+            maxPoolSize = processors
+            initialize()
+        }
     private val publishService = DatalakePublishService(ociClient, taskExecutor)
 
     @BeforeEach
@@ -83,9 +85,10 @@ class DatalakePublishServiceIT {
     @Test
     fun `can publish FHIR`() {
         val id = Id(UUID.randomUUID().toString())
-        val patient = Patient(
-            id = id
-        )
+        val patient =
+            Patient(
+                id = id,
+            )
         val tenant = "ronin"
 
         val objectName = getR4Name(tenant, "Patient", id.value!!)
@@ -98,7 +101,11 @@ class DatalakePublishServiceIT {
         assertEquals(objectMapper.writeValueAsString(patient), decode(request.bodyAsString))
     }
 
-    private fun getR4Name(tenantId: String, resourceType: String, resourceId: String): String {
+    private fun getR4Name(
+        tenantId: String,
+        resourceType: String,
+        resourceId: String,
+    ): String {
         val date = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
         // OCI doesn't encode all characters, use their API so we don't encode '='
         val objectName = "ehr/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=$date/$resourceId.json"
@@ -109,15 +116,15 @@ class DatalakePublishServiceIT {
         client.`when`(
             request()
                 .withMethod("PUT")
-                .withPath(getObjectPath(objectName))
+                .withPath(getObjectPath(objectName)),
         ).respond(
-            HttpResponse.response().withStatusCode(200).withContentType(MediaType.APPLICATION_JSON)
+            HttpResponse.response().withStatusCode(200).withContentType(MediaType.APPLICATION_JSON),
         )
     }
 
     private fun getLastPut(objectName: String): HttpRequest? =
         client.retrieveRecordedRequests(
-            request().withPath(getObjectPath(objectName)).withMethod("PUT")
+            request().withPath(getObjectPath(objectName)).withMethod("PUT"),
         ).firstOrNull()
 
     private fun getObjectPath(objectName: String) = "/n/$namespace/b/$dlbucketName/o/$objectName"
