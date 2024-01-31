@@ -11,6 +11,7 @@ import com.oracle.bmc.objectstorage.requests.PutObjectRequest
 import com.oracle.bmc.objectstorage.responses.HeadObjectResponse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
@@ -41,6 +42,8 @@ class OCIClient(
     @Value("\${oci.region:us-phoenix-1}")
     private val regionId: String,
 ) {
+    private val logger = KotlinLogging.logger { }
+
     private val privateKeySupplier: Supplier<InputStream> =
         Supplier<InputStream> { Base64.getDecoder().decode(privateKey).inputStream() }
     val authProvider: SimpleAuthenticationDetailsProvider by lazy {
@@ -136,6 +139,7 @@ class OCIClient(
                     runBlocking { delay(5000) }
                     client.putObject(putObjectRequest).__httpStatusCode__
                 } else {
+                    logger.error(bmcException) { "Error while uploading to OCI" }
                     null
                 }
             }

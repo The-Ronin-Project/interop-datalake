@@ -73,7 +73,7 @@ class DatalakePublishServiceIT {
             maxPoolSize = processors
             initialize()
         }
-    private val publishService = DatalakePublishService(ociClient, taskExecutor)
+    private val publishService = DatalakePublishService(ociClient)
 
     @BeforeEach
     fun setup() {

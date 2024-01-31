@@ -20,17 +20,11 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.time.LocalDate
 
 class DatalakePublishServiceTest {
     private val mockClient = mockk<OCIClient>()
-    private val executor =
-        ThreadPoolTaskExecutor().apply {
-            corePoolSize = 1
-            initialize()
-        }
-    private val service = DatalakePublishService(mockClient, executor)
+    private val service = DatalakePublishService(mockClient)
     private val tenantId = "mockTenant"
 
     @Test
@@ -119,6 +113,40 @@ class DatalakePublishServiceTest {
     }
 
     @Test
+    fun `fhir R4 publish fails`() {
+        mockkConstructor(LocalDate::class)
+        mockkStatic(LocalDate::class)
+
+        val mockkLocalDate =
+            mockk<LocalDate> {
+                every { format(any()) } returns "1990-01-03"
+            }
+        every { LocalDate.now() } returns mockkLocalDate // LocalDate.of(1990,1,3)
+
+        val location1 =
+            Location(
+                id = Id("abc"),
+                name = "Location1".asFHIR(),
+            )
+
+        val objectMapper = JacksonManager.objectMapper
+        every {
+            mockClient.uploadToDatalake(
+                any(),
+                objectMapper.writeValueAsString(location1),
+            )
+        } returns false
+
+        val exception =
+            assertThrows<IllegalStateException> {
+                service.publishFHIRR4(tenantId, listOf(location1))
+            }
+        assertEquals("One or more writes to datalake failed", exception.message)
+
+        verify(exactly = 1) { mockClient.uploadToDatalake(any(), any()) }
+    }
+
+    @Test
     fun `raw data publish`() {
         every {
             mockClient.uploadToDatalake(
@@ -132,6 +160,22 @@ class DatalakePublishServiceTest {
     }
 
     @Test
+    fun `raw data publish fails`() {
+        every {
+            mockClient.uploadToDatalake(
+                any(),
+                any(),
+            )
+        } returns false
+
+        val exception =
+            assertThrows<IllegalStateException> {
+                service.publishRawData(tenantId, "json data", "http://Epic.com")
+            }
+        assertEquals("Raw data publication failed", exception.message)
+    }
+
+    @Test
     fun `binary publish`() {
         every {
             mockClient.uploadToDatalake(
@@ -142,6 +186,23 @@ class DatalakePublishServiceTest {
         val mockBinary = Binary(id = Id("12345"), contentType = Code("1"))
         every { mockClient.getDatalakeFullURL(any()) } returns "http://objectstorage"
         assertDoesNotThrow { service.publishBinaryData(tenantId, listOf(mockBinary)) }
+    }
+
+    @Test
+    fun `binary publish fails`() {
+        every {
+            mockClient.uploadToDatalake(
+                any(),
+                any(),
+            )
+        } returns false
+        val mockBinary = Binary(id = Id("12345"), contentType = Code("1"))
+
+        val exception =
+            assertThrows<IllegalStateException> {
+                service.publishBinaryData(tenantId, listOf(mockBinary))
+            }
+        assertEquals("One or more writes to datalake failed", exception.message)
     }
 
     @Test

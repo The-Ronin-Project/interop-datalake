@@ -5,24 +5,29 @@ import com.projectronin.interop.common.jackson.JacksonUtil
 import com.projectronin.interop.datalake.oci.client.OCIClient
 import com.projectronin.interop.fhir.r4.resource.Binary
 import com.projectronin.interop.fhir.r4.resource.Resource
-import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-import java.util.concurrent.TimeUnit
+import kotlin.math.min
 
 /**
  * Service allowing access to push data updates to the datalake
  */
 @Service
-class DatalakePublishService(private val ociClient: OCIClient, private val taskExecutor: ThreadPoolTaskExecutor) {
+class DatalakePublishService(
+    private val ociClient: OCIClient,
+    @Value("\${oci.publish.pool.max:10}")
+    private val maximumPoolSize: Int = 10,
+) {
     private val logger = KotlinLogging.logger { }
 
     /**
@@ -53,27 +58,23 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
         val date = LocalDate.now()
         val resourcesToWrite = resources.filter { it.id?.value?.isNotEmpty() ?: false }
 
-        val context = taskExecutor.asCoroutineDispatcher()
-        runBlocking {
-            val jobs =
-                resourcesToWrite.map {
-                    async(context) {
-                        val resourceType = it.resourceType
-                        val resourceId = it.id?.value!!
-                        val filePathString =
-                            "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${
-                                date.format(
-                                    DateTimeFormatter.ISO_LOCAL_DATE,
-                                )
-                            }/$resourceId.json"
-                        logger.debug { "Publishing Ronin clinical data to $filePathString" }
-                        val serialized = JacksonManager.objectMapper.writeValueAsString(it)
-                        ociClient.uploadToDatalake(filePathString, serialized)
-                    }
-                }
+        val results =
+            runInPool(resourcesToWrite) { resource ->
+                val resourceType = resource.resourceType
+                val resourceId = resource.id?.value!!
+                val filePathString =
+                    "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${
+                        date.format(
+                            DateTimeFormatter.ISO_LOCAL_DATE,
+                        )
+                    }/$resourceId.json"
+                logger.debug { "Publishing Ronin clinical data to $filePathString" }
+                val serialized = JacksonManager.objectMapper.writeValueAsString(resource)
+                ociClient.uploadToDatalake(filePathString, serialized)
+            }
 
-            // Force completion of each job
-            jobs.awaitAll()
+        if (results.any { !it }) {
+            throw IllegalStateException("One or more writes to datalake failed")
         }
 
         if (resourcesToWrite.size < resources.size) {
@@ -94,18 +95,45 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
         tenantId: String,
         binaryList: List<Binary>,
     ) {
-        val jobs =
-            binaryList.map { binary ->
+        val results =
+            runInPool(binaryList) { binary ->
                 val filePathString = getBinaryFilepath(tenantId, binary.id!!.value!!)
                 logger.debug { "Publishing Binary data to $filePathString" }
-                taskExecutor.submit {
-                    ociClient.uploadToDatalake(
-                        filePathString,
-                        JacksonUtil.writeJsonValue(binary),
-                    )
+                ociClient.uploadToDatalake(
+                    filePathString,
+                    JacksonUtil.writeJsonValue(binary),
+                )
+            }
+
+        if (results.any { !it }) {
+            throw IllegalStateException("One or more writes to datalake failed")
+        }
+    }
+
+    /**
+     * Runs the [items] in a shared pool, executing the [processor] for each item.
+     */
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun <I, V> runInPool(
+        items: List<I>,
+        processor: (I) -> V,
+    ): List<V> {
+        if (items.isEmpty()) return emptyList()
+
+        val threadPoolSize = min(maximumPoolSize, items.size)
+        val results =
+            newFixedThreadPoolContext(threadPoolSize, "datalake").use { context ->
+                runBlocking {
+                    val jobs =
+                        items.map {
+                            async(context) { processor(it) }
+                        }
+
+                    // Force completion of each job
+                    jobs.awaitAll()
                 }
             }
-        jobs.forEach { it.get(20, TimeUnit.SECONDS) }
+        return results
     }
 
     fun getBinaryFilepath(
@@ -138,7 +166,7 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
         logger.info { "Publishing Ronin clinical data to datalake at $root" }
         val filePathString = "$root/tenant_id=$tenantId/transaction_id/$transactionID"
         logger.debug { "Publishing Ronin clinical data to $filePathString" }
-        taskExecutor.submit {
+        val published =
             ociClient.uploadToDatalake(
                 filePathString,
                 JacksonUtil.writeJsonValue(
@@ -149,7 +177,11 @@ class DatalakePublishService(private val ociClient: OCIClient, private val taskE
                     ),
                 ),
             )
+
+        if (!published) {
+            throw IllegalStateException("Raw data publication failed")
         }
+
         return getDatalakeFullURL(filePathString)
     }
 
