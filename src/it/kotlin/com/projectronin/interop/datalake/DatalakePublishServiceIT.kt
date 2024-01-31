@@ -19,7 +19,6 @@ import org.mockserver.model.HttpRequest
 import org.mockserver.model.HttpRequest.request
 import org.mockserver.model.HttpResponse
 import org.mockserver.model.MediaType
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.junit.jupiter.Container
@@ -66,13 +65,6 @@ class DatalakePublishServiceIT {
 
     private val ociClient =
         OCIClient(ociTenantId, ociUserId, fingerPrint, privateKey, namespace, infxbucketName, dlbucketName, regionId)
-    private val taskExecutor =
-        ThreadPoolTaskExecutor().apply {
-            val processors = Runtime.getRuntime().availableProcessors()
-            corePoolSize = processors / 2
-            maxPoolSize = processors
-            initialize()
-        }
     private val publishService = DatalakePublishService(ociClient)
 
     @BeforeEach
