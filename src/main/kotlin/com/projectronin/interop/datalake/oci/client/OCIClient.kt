@@ -55,7 +55,12 @@ class OCIClient(
             .privateKeySupplier(privateKeySupplier)
             .build()
     }
-    private val client by lazy {
+    private val sharedClient by lazy { getObjectStorageClient() }
+
+    /**
+     * Gets the [ObjectStorageClient] to use for a specific call.
+     */
+    internal fun getObjectStorageClient(): ObjectStorageClient =
         ObjectStorageClient.builder()
             .clientConfigurator { // Disables Apache Connector
                 it.property(Jersey3ClientProperties.USE_APACHE_CONNECTOR, false)
@@ -63,7 +68,6 @@ class OCIClient(
             // Disables stream warning presented about Apache Connector
             .isStreamWarningEnabled(false)
             .build(authProvider)
-    }
 
     /**
      * Retrieves the contents of the object found at [fileName] in the infx-shared bucket. If [fileName] is null,
@@ -81,8 +85,9 @@ class OCIClient(
     fun uploadToDatalake(
         fileName: String,
         data: String,
+        client: ObjectStorageClient = sharedClient,
     ): Boolean {
-        return upload(datalakeBucket, fileName, data)
+        return upload(datalakeBucket, fileName, data, client)
     }
 
     fun getDatalakeFullURL(fileName: String): String =
@@ -96,6 +101,7 @@ class OCIClient(
         bucket: String,
         fileName: String,
         data: String,
+        client: ObjectStorageClient = sharedClient,
     ): Boolean =
         uploadObjectRequest(
             PutObjectRequest.builder()
@@ -104,6 +110,7 @@ class OCIClient(
                 .namespaceName(namespace)
                 .bucketName(bucket)
                 .build(),
+            client,
         )
 
     /**
@@ -116,6 +123,7 @@ class OCIClient(
         bucket: String,
         fileName: String,
         stream: InputStream,
+        client: ObjectStorageClient = sharedClient,
     ): Boolean =
         uploadObjectRequest(
             PutObjectRequest.builder()
@@ -124,9 +132,13 @@ class OCIClient(
                 .namespaceName(namespace)
                 .bucketName(bucket)
                 .build(),
+            client,
         )
 
-    private fun uploadObjectRequest(putObjectRequest: PutObjectRequest): Boolean {
+    private fun uploadObjectRequest(
+        putObjectRequest: PutObjectRequest,
+        client: ObjectStorageClient,
+    ): Boolean {
         // OCI JDK natively supports retrying, but errors occasionally when something unexpected happens
         // https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/javasdkconcepts.htm
 
@@ -162,7 +174,7 @@ class OCIClient(
 
         val result =
             try {
-                val inputStream = client.getObject(getObjectRequest).inputStream
+                val inputStream = sharedClient.getObject(getObjectRequest).inputStream
                 inputStream?.bufferedReader().use { it?.readText() }
             } catch (exception: BmcException) {
                 when (exception.statusCode) {
@@ -206,7 +218,7 @@ class OCIClient(
                 .bucketName(bucket)
                 .build()
 
-        return client.headObject(headObjectRequest)
+        return sharedClient.headObject(headObjectRequest)
     }
 
     /**

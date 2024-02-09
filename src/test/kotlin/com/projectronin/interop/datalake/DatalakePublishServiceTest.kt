@@ -1,5 +1,6 @@
 package com.projectronin.interop.datalake
 
+import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.projectronin.interop.common.jackson.JacksonManager
 import com.projectronin.interop.datalake.oci.client.OCIClient
 import com.projectronin.interop.fhir.r4.datatype.primitive.Code
@@ -63,30 +64,38 @@ class DatalakePublishServiceTest {
         val locationFilePathString = filePathString.replace("__RESOURCETYPE__", "location")
         val practitionerFilePathString = filePathString.replace("__RESOURCETYPE__", "practitioner")
         val objectMapper = JacksonManager.objectMapper
+
+        val objectStorageClient = mockk<ObjectStorageClient>(relaxed = true)
+        every { mockClient.getObjectStorageClient() } returns objectStorageClient
         every {
             mockClient.uploadToDatalake(
                 locationFilePathString.replace("__FHIRID__", "abc"),
                 objectMapper.writeValueAsString(location1),
+                objectStorageClient,
             )
         } returns true
         every {
             mockClient.uploadToDatalake(
                 locationFilePathString.replace("__FHIRID__", "def"),
                 objectMapper.writeValueAsString(location2),
+                objectStorageClient,
             )
         } returns true
         every {
             mockClient.uploadToDatalake(
                 practitionerFilePathString.replace("__FHIRID__", "abc"),
                 objectMapper.writeValueAsString(practitioner),
+                objectStorageClient,
             )
         } returns true
         service.publishFHIRR4(tenantId, listOf(location1, location2, practitioner))
-        verify(exactly = 3) { mockClient.uploadToDatalake(any(), any()) }
+        verify(exactly = 3) { mockClient.uploadToDatalake(any(), any(), objectStorageClient) }
     }
 
     @Test
     fun `cannot publish a FHIR R4 resource that has no id`() {
+        every { mockClient.getObjectStorageClient() } returns mockk()
+
         val badResource = Location()
         val exception =
             assertThrows<IllegalStateException> {
@@ -100,6 +109,8 @@ class DatalakePublishServiceTest {
 
     @Test
     fun `cannot publish a FHIR R4 resource that has a null id or value`() {
+        every { mockClient.getObjectStorageClient() } returns mockk()
+
         val badResource = Location(id = null)
         val badResource2 = Location(id = Id(value = ""))
         val exception =
@@ -130,10 +141,14 @@ class DatalakePublishServiceTest {
             )
 
         val objectMapper = JacksonManager.objectMapper
+
+        val objectStorageClient = mockk<ObjectStorageClient>(relaxed = true)
+        every { mockClient.getObjectStorageClient() } returns objectStorageClient
         every {
             mockClient.uploadToDatalake(
                 any(),
                 objectMapper.writeValueAsString(location1),
+                objectStorageClient,
             )
         } returns false
 
@@ -143,7 +158,7 @@ class DatalakePublishServiceTest {
             }
         assertEquals("One or more writes to datalake failed", exception.message)
 
-        verify(exactly = 1) { mockClient.uploadToDatalake(any(), any()) }
+        verify(exactly = 1) { mockClient.uploadToDatalake(any(), any(), objectStorageClient) }
     }
 
     @Test
@@ -177,10 +192,13 @@ class DatalakePublishServiceTest {
 
     @Test
     fun `binary publish`() {
+        val objectStorageClient = mockk<ObjectStorageClient>(relaxed = true)
+        every { mockClient.getObjectStorageClient() } returns objectStorageClient
         every {
             mockClient.uploadToDatalake(
                 any(),
                 any(),
+                objectStorageClient,
             )
         } returns true
         val mockBinary = Binary(id = Id("12345"), contentType = Code("1"))
@@ -190,10 +208,13 @@ class DatalakePublishServiceTest {
 
     @Test
     fun `binary publish fails`() {
+        val objectStorageClient = mockk<ObjectStorageClient>(relaxed = true)
+        every { mockClient.getObjectStorageClient() } returns objectStorageClient
         every {
             mockClient.uploadToDatalake(
                 any(),
                 any(),
+                objectStorageClient,
             )
         } returns false
         val mockBinary = Binary(id = Id("12345"), contentType = Code("1"))

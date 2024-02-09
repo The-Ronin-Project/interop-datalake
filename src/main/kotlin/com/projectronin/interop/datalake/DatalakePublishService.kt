@@ -58,29 +58,32 @@ class DatalakePublishService(
         val date = LocalDate.now()
         val resourcesToWrite = resources.filter { it.id?.value?.isNotEmpty() ?: false }
 
-        val results =
-            runInPool(resourcesToWrite) { resource ->
-                val resourceType = resource.resourceType
-                val resourceId = resource.id?.value!!
-                val filePathString =
-                    "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${
-                        date.format(
-                            DateTimeFormatter.ISO_LOCAL_DATE,
-                        )
-                    }/$resourceId.json"
-                logger.debug { "Publishing Ronin clinical data to $filePathString" }
-                val serialized = JacksonManager.objectMapper.writeValueAsString(resource)
-                ociClient.uploadToDatalake(filePathString, serialized)
+        ociClient.getObjectStorageClient().use { objectStorageClient ->
+            val results =
+                runInPool(resourcesToWrite) { resource ->
+                    val resourceType = resource.resourceType
+                    val resourceId = resource.id?.value!!
+                    val filePathString =
+                        "$root/${resourceType.lowercase()}/fhir_tenant_id=$tenantId/_date=${
+                            date.format(
+                                DateTimeFormatter.ISO_LOCAL_DATE,
+                            )
+                        }/$resourceId.json"
+                    logger.debug { "Publishing Ronin clinical data to $filePathString" }
+                    val serialized = JacksonManager.objectMapper.writeValueAsString(resource)
+                    ociClient.uploadToDatalake(filePathString, serialized, objectStorageClient)
+                }
+
+            if (results.any { !it }) {
+                throw IllegalStateException("One or more writes to datalake failed")
             }
 
-        if (results.any { !it }) {
-            throw IllegalStateException("One or more writes to datalake failed")
-        }
-
-        if (resourcesToWrite.size < resources.size) {
-            throw IllegalStateException(
-                "Did not publish all FHIR resources to datalake for tenant $tenantId: Some resources lacked FHIR IDs. Errors were logged.",
-            )
+            if (resourcesToWrite.size < resources.size) {
+                throw IllegalStateException(
+                    "Did not publish all FHIR resources to datalake for tenant $tenantId: " +
+                        "Some resources lacked FHIR IDs. Errors were logged.",
+                )
+            }
         }
     }
 
@@ -95,18 +98,21 @@ class DatalakePublishService(
         tenantId: String,
         binaryList: List<Binary>,
     ) {
-        val results =
-            runInPool(binaryList) { binary ->
-                val filePathString = getBinaryFilepath(tenantId, binary.id!!.value!!)
-                logger.debug { "Publishing Binary data to $filePathString" }
-                ociClient.uploadToDatalake(
-                    filePathString,
-                    JacksonUtil.writeJsonValue(binary),
-                )
-            }
+        ociClient.getObjectStorageClient().use { objectStorageClient ->
+            val results =
+                runInPool(binaryList) { binary ->
+                    val filePathString = getBinaryFilepath(tenantId, binary.id!!.value!!)
+                    logger.debug { "Publishing Binary data to $filePathString" }
+                    ociClient.uploadToDatalake(
+                        filePathString,
+                        JacksonUtil.writeJsonValue(binary),
+                        objectStorageClient,
+                    )
+                }
 
-        if (results.any { !it }) {
-            throw IllegalStateException("One or more writes to datalake failed")
+            if (results.any { !it }) {
+                throw IllegalStateException("One or more writes to datalake failed")
+            }
         }
     }
 

@@ -1,9 +1,6 @@
 package com.projectronin.interop.datalake.oci.client
 
 import com.oracle.bmc.auth.SimpleAuthenticationDetailsProvider.SimpleAuthenticationDetailsProviderBuilder
-import com.oracle.bmc.http.ClientConfigurator
-import com.oracle.bmc.http.client.HttpClientBuilder
-import com.oracle.bmc.http.client.jersey3.Jersey3ClientProperties
 import com.oracle.bmc.model.BmcException
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.requests.GetObjectRequest
@@ -12,12 +9,11 @@ import com.oracle.bmc.objectstorage.requests.PutObjectRequest
 import com.oracle.bmc.objectstorage.responses.GetObjectResponse
 import com.oracle.bmc.objectstorage.responses.HeadObjectResponse
 import com.oracle.bmc.objectstorage.responses.PutObjectResponse
+import io.mockk.Called
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
-import io.mockk.slot
-import io.mockk.spyk
 import io.mockk.unmockkAll
 import io.mockk.verify
 import org.junit.jupiter.api.AfterEach
@@ -26,6 +22,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.io.InputStream
@@ -33,17 +30,64 @@ import java.net.URI
 import java.util.Base64
 
 class OCIClientTest {
-    private val testClient =
-        OCIClient(
-            "tenancy",
-            "user",
-            "fingerprint",
-            "key",
-            "namespace",
-            "infxbucket",
-            "datalakebucket",
-            "us-phoenix-1",
-        )
+    private val objectStorageClient = mockk<ObjectStorageClient>()
+    private val getObjectRequest = mockk<GetObjectRequest>()
+    private val getObjectResponse = mockk<GetObjectResponse>()
+    private val putObjectRequest = mockk<PutObjectRequest>()
+    private val putObjectResponse = mockk<PutObjectResponse>()
+
+    private lateinit var client: OCIClient
+
+    @BeforeEach
+    fun setup() {
+        mockkStatic(ObjectStorageClient::class)
+        mockkConstructor(GetObjectRequest.Builder::class)
+        mockkConstructor(PutObjectRequest.Builder::class)
+
+        val getBuilder =
+            mockk<GetObjectRequest.Builder> {
+                every { namespaceName("namespace") } returns this
+                every { bucketName("infxbucket") } returns this
+                every { build() } returns getObjectRequest
+            }
+        every { anyConstructed<GetObjectRequest.Builder>().objectName("test") } returns getBuilder
+
+        val putBuilder =
+            mockk<PutObjectRequest.Builder> {
+                every { namespaceName("namespace") } returns this
+                every { bucketName("datalakebucket") } returns this
+                every { putObjectBody(any()) } returns this
+                every { build() } returns putObjectRequest
+            }
+        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns putBuilder
+
+        every { objectStorageClient.getObject(getObjectRequest) } returns getObjectResponse
+        every { objectStorageClient.putObject(putObjectRequest) } returns putObjectResponse
+
+        every { ObjectStorageClient.builder() } returns
+            mockk {
+                every { clientConfigurator(any()) } returns this
+                every { isStreamWarningEnabled(false) } returns this
+                every { build(any()) } returns objectStorageClient
+            }
+
+        client =
+            OCIClient(
+                "tenancy",
+                "user",
+                "fingerprint",
+                "key",
+                "namespace",
+                "infxbucket",
+                "datalakebucket",
+                "us-phoenix-1",
+            )
+    }
+
+    @AfterEach
+    fun tearDown() {
+        unmockkAll()
+    }
 
     @Test
     fun `getAuthentication - works`() {
@@ -72,265 +116,109 @@ class OCIClientTest {
 
     @Test
     fun `getContentBody - works`() {
-        val mockRequest = mockk<GetObjectRequest> {}
-        mockkConstructor(GetObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<GetObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("infxbucket") } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<GetObjectRequest.Builder>().objectName("test") } returns mockBuilder
+        every { getObjectResponse.inputStream } returns "blag".byteInputStream()
 
-        val mockResponse =
-            mockk<GetObjectResponse> {
-                every { inputStream } returns "blag".byteInputStream()
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } returns mockResponse
-            }
-
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectFromINFX("test") } answers { callOriginal() }
         assertEquals("blag", client.getObjectFromINFX("test"))
     }
 
     @Test
     fun `getContentBody - works with null`() {
-        val mockRequest = mockk<GetObjectRequest> {}
-        mockkConstructor(GetObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<GetObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("infxbucket") } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<GetObjectRequest.Builder>().objectName("test") } returns mockBuilder
+        every { getObjectResponse.inputStream } returns null
 
-        val mockResponse =
-            mockk<GetObjectResponse> {
-                every { inputStream } returns null
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } returns mockResponse
-            }
-
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectFromINFX("test") } answers { callOriginal() }
         assertNull(client.getObjectFromINFX("test"))
     }
 
     @Test
     fun `put object - works`() {
-        val mockRequest = mockk<PutObjectRequest> {}
-        mockkConstructor(PutObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<PutObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("datalakebucket") } returns this
-                every { putObjectBody(any()) } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
+        every { putObjectResponse.__httpStatusCode__ } returns 200
 
-        val mockResponse =
-            mockk<PutObjectResponse> {
-                every { __httpStatusCode__ } returns 200
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { putObject(mockRequest) } returns mockResponse
-            }
-
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.uploadToDatalake("test", "content") } answers { callOriginal() }
         assertTrue(client.uploadToDatalake("test", "content"))
     }
 
     @Test
     fun `put object stream - works`() {
-        val mockRequest = mockk<PutObjectRequest> {}
-        mockkConstructor(PutObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<PutObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("datalakebucket") } returns this
-                every { putObjectBody(any()) } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
-
-        val mockResponse =
-            mockk<PutObjectResponse> {
-                every { __httpStatusCode__ } returns 200
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { putObject(mockRequest) } returns mockResponse
-            }
+        every { putObjectResponse.__httpStatusCode__ } returns 200
 
         val mockInputStream = mockk<InputStream> {}
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.upload("datalakebucket", "test", mockInputStream) } answers { callOriginal() }
         assertTrue(client.upload("datalakebucket", "test", mockInputStream))
     }
 
     @Test
-    fun `put object - returns false for failure`() {
-        val mockRequest = mockk<PutObjectRequest> {}
-        mockkConstructor(PutObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<PutObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("datalakebucket") } returns this
-                every { putObjectBody(any()) } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
+    fun `upload works with shared client`() {
+        every { putObjectResponse.__httpStatusCode__ } returns 200
 
-        val mockResponse =
-            mockk<PutObjectResponse> {
-                every { __httpStatusCode__ } returns 404
-            }
-        val mockObjectStorageClient =
+        val mockInputStream = mockk<InputStream> {}
+
+        assertTrue(client.upload("datalakebucket", "test", mockInputStream))
+    }
+
+    @Test
+    fun `upload works with non-shared client`() {
+        every { putObjectResponse.__httpStatusCode__ } returns 200
+
+        val newObjectStorageClient =
             mockk<ObjectStorageClient> {
-                every { putObject(mockRequest) } returns mockResponse
+                every { putObject(putObjectRequest) } returns putObjectResponse
             }
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.uploadToDatalake("test", "content") } answers { callOriginal() }
+        val mockInputStream = mockk<InputStream> {}
+
+        assertTrue(client.upload("datalakebucket", "test", mockInputStream, newObjectStorageClient))
+
+        verify { objectStorageClient wasNot Called }
+    }
+
+    @Test
+    fun `uploadToDatalake works with shared client`() {
+        every { putObjectResponse.__httpStatusCode__ } returns 200
+
+        assertTrue(client.uploadToDatalake("test", "content"))
+    }
+
+    @Test
+    fun `uploadToDatalake works with non-shared client`() {
+        every { putObjectResponse.__httpStatusCode__ } returns 200
+
+        val newObjectStorageClient =
+            mockk<ObjectStorageClient> {
+                every { putObject(putObjectRequest) } returns putObjectResponse
+            }
+
+        assertTrue(client.uploadToDatalake("test", "content", newObjectStorageClient))
+
+        verify { objectStorageClient wasNot Called }
+    }
+
+    @Test
+    fun `put object - returns false for failure`() {
+        every { putObjectResponse.__httpStatusCode__ } returns 404
+
         assertFalse(client.uploadToDatalake("test", "content"))
     }
 
     @Test
     fun `put object retries on failure`() {
-        val mockRequest = mockk<PutObjectRequest> {}
-        mockkConstructor(PutObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<PutObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("datalakebucket") } returns this
-                every { putObjectBody(any()) } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
+        every { putObjectResponse.__httpStatusCode__ } returns 200
 
-        val mockResponse =
-            mockk<PutObjectResponse> {
-                every { __httpStatusCode__ } returns 200
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { putObject(mockRequest) } throws BmcException(-1, "", "", "") andThen mockResponse
-            }
+        every { objectStorageClient.putObject(putObjectRequest) } throws
+            BmcException(-1, "", "", "") andThen putObjectResponse
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.uploadToDatalake("test", "content") } answers { callOriginal() }
         assertTrue(client.uploadToDatalake("test", "content"))
     }
 
     @Test
     fun `put object retries on failure and then throws error`() {
-        val mockRequest = mockk<PutObjectRequest> {}
-        mockkConstructor(PutObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<PutObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("datalakebucket") } returns this
-                every { putObjectBody(any()) } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
+        every { objectStorageClient.putObject(putObjectRequest) } throws BmcException(-1, "", "", "")
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { putObject(mockRequest) } throws BmcException(-1, "", "", "")
-            }
-
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.uploadToDatalake("test", "content") } answers { callOriginal() }
         assertThrows<BmcException> { (client.uploadToDatalake("test", "content")) }
     }
 
     @Test
     fun `put object doesn't retry in case that doesn't actually happen`() {
-        val mockRequest = mockk<PutObjectRequest> {}
-        mockkConstructor(PutObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<PutObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("datalakebucket") } returns this
-                every { putObjectBody(any()) } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
+        every { objectStorageClient.putObject(putObjectRequest) } throws BmcException(200, "", "", "")
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { putObject(mockRequest) } throws BmcException(200, "", "", "")
-            }
-
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.uploadToDatalake("test", "content") } answers { callOriginal() }
         assertFalse((client.uploadToDatalake("test", "content")))
-    }
-
-    @Test
-    fun `client is constructed properly`() {
-        val mockRequest = mockk<PutObjectRequest> {}
-        mockkConstructor(PutObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<PutObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("datalakebucket") } returns this
-                every { putObjectBody(any()) } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<PutObjectRequest.Builder>().objectName("test") } returns mockBuilder
-
-        val mockResponse =
-            mockk<PutObjectResponse> {
-                every { __httpStatusCode__ } returns 200
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { putObject(mockRequest) } returns mockResponse
-            }
-
-        mockkStatic(ObjectStorageClient::class)
-        val clientConfiguratorSlot = slot<ClientConfigurator>()
-        val mockClientBuilder =
-            mockk<ObjectStorageClient.Builder> {
-                every { clientConfigurator(capture(clientConfiguratorSlot)) } returns this
-                every { isStreamWarningEnabled(any()) } returns this
-                every { build(any()) } returns mockObjectStorageClient
-            }
-        every { ObjectStorageClient.builder() } returns mockClientBuilder
-
-        val mockInputStream = mockk<InputStream> {}
-
-        val client = spyk(testClient)
-        every { client.upload("datalakebucket", "test", mockInputStream) } answers { callOriginal() }
-        assertTrue(client.upload("datalakebucket", "test", mockInputStream))
-
-        verify(exactly = 1) { mockClientBuilder.isStreamWarningEnabled(false) }
-
-        val httpClientBuilder = mockk<HttpClientBuilder>(relaxed = true)
-        val clientConfigurator = clientConfiguratorSlot.captured
-        clientConfigurator.customizeClient(httpClientBuilder)
-
-        verify(exactly = 1) { httpClientBuilder.property(Jersey3ClientProperties.USE_APACHE_CONNECTOR, false) }
     }
 
     @Test
@@ -339,28 +227,16 @@ class OCIClientTest {
         val testUrl = URI("https://objectstorage.region.oraclecloud.com/n/namespace/b/bucket/o/$testFile")
         val testFileContents = "TWV0YW1vcnBob3NpcyBieSBPdmlk"
 
-        val mockRequest = mockk<GetObjectRequest> {}
-        mockkConstructor(GetObjectRequest.Builder::class)
         val mockBuilder =
             mockk<GetObjectRequest.Builder> {
                 every { namespaceName("namespace") } returns this
                 every { bucketName("bucket") } returns this
-                every { build() } returns mockRequest
+                every { build() } returns getObjectRequest
             }
         every { anyConstructed<GetObjectRequest.Builder>().objectName(testFile) } returns mockBuilder
 
-        val mockResponse =
-            mockk<GetObjectResponse> {
-                every { inputStream } returns testFileContents.byteInputStream()
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } returns mockResponse
-            }
+        every { getObjectResponse.inputStream } returns testFileContents.byteInputStream()
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectBody(testUrl) } answers { callOriginal() }
         assertEquals(testFileContents, client.getObjectBody(testUrl))
     }
 
@@ -370,33 +246,11 @@ class OCIClientTest {
         val testUrl2 = URI("https://a.b.c.d/efg/hij/klm/nop")
         val testUrl3 = URI("https://objectstorage.region.oraclecloud.com/n/namespace/b/bucket/o")
 
-        val mockRequest = mockk<GetObjectRequest> {}
-        mockkConstructor(GetObjectRequest.Builder::class)
-        val mockBuilder =
-            mockk<GetObjectRequest.Builder> {
-                every { namespaceName("namespace") } returns this
-                every { bucketName("bucket") } returns this
-                every { build() } returns mockRequest
-            }
-        every { anyConstructed<GetObjectRequest.Builder>().objectName(any()) } returns mockBuilder
-
-        val mockResponse =
-            mockk<GetObjectResponse> {
-                every { inputStream } returns "".byteInputStream()
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } returns mockResponse
-            }
-
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectBody(ofType(URI::class)) } answers { callOriginal() }
         assertNull(client.getObjectBody(testUrl1))
         assertNull(client.getObjectBody(testUrl2))
         assertNull(client.getObjectBody(testUrl3))
 
-        verify(exactly = 0) { mockObjectStorageClient.getObject(any()) }
+        verify(exactly = 0) { objectStorageClient.getObject(any()) }
     }
 
     @Test
@@ -404,28 +258,16 @@ class OCIClientTest {
         val fileName = "ehr/Binary/fhir_tenant_id=tenantId/resourceId.json"
         val testFileContents = "TWV0YW1vcnBob3NpcyBieSBPdmlk"
 
-        val mockRequest = mockk<GetObjectRequest> {}
-        mockkConstructor(GetObjectRequest.Builder::class)
         val mockBuilder =
             mockk<GetObjectRequest.Builder> {
                 every { namespaceName("namespace") } returns this
                 every { bucketName("datalakebucket") } returns this
-                every { build() } returns mockRequest
+                every { build() } returns getObjectRequest
             }
         every { anyConstructed<GetObjectRequest.Builder>().objectName(fileName) } returns mockBuilder
 
-        val mockResponse =
-            mockk<GetObjectResponse> {
-                every { inputStream } returns testFileContents.byteInputStream()
-            }
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } returns mockResponse
-            }
+        every { getObjectResponse.inputStream } returns testFileContents.byteInputStream()
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectBody(fileName) } answers { callOriginal() }
         assertEquals(testFileContents, client.getObjectBody(fileName))
     }
 
@@ -443,14 +285,8 @@ class OCIClientTest {
             }
         every { anyConstructed<GetObjectRequest.Builder>().objectName(fileName) } returns mockBuilder
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } throws BmcException(404, "BucketNotFound", "", "")
-            }
+        every { objectStorageClient.getObject(mockRequest) } throws BmcException(404, "BucketNotFound", "", "")
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectBody(ofType(URI::class)) } answers { callOriginal() }
         assertNull(client.getObjectBody(fileName))
     }
 
@@ -468,14 +304,8 @@ class OCIClientTest {
             }
         every { anyConstructed<GetObjectRequest.Builder>().objectName(fileName) } returns mockBuilder
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } throws BmcException(500, "BucketFellOffCliff", "", "")
-            }
+        every { objectStorageClient.getObject(mockRequest) } throws BmcException(500, "BucketFellOffCliff", "", "")
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectBody(ofType(URI::class)) } answers { callOriginal() }
         assertThrows<BmcException> { client.getObjectBody(fileName) }
     }
 
@@ -483,7 +313,6 @@ class OCIClientTest {
     fun `getObjectBody by url returns null when getting 404 exception from OCI`() {
         val testFile = "testFile"
         val testUrl = URI("https://objectstorage.region.oraclecloud.com/n/namespace/b/bucket/o/$testFile")
-        val testFileContents = "TWV0YW1vcnBob3NpcyBieSBPdmlk"
 
         val mockRequest = mockk<GetObjectRequest> {}
         mockkConstructor(GetObjectRequest.Builder::class)
@@ -495,14 +324,8 @@ class OCIClientTest {
             }
         every { anyConstructed<GetObjectRequest.Builder>().objectName(testFile) } returns mockBuilder
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } throws BmcException(404, "BucketNotFound", "", "")
-            }
+        every { objectStorageClient.getObject(mockRequest) } throws BmcException(404, "BucketNotFound", "", "")
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectBody(testUrl) } answers { callOriginal() }
         assertNull(client.getObjectBody(testUrl))
     }
 
@@ -510,7 +333,6 @@ class OCIClientTest {
     fun `getObjectBody by url errors when getting non-404 exception from OCI`() {
         val testFile = "testFile"
         val testUrl = URI("https://objectstorage.region.oraclecloud.com/n/namespace/b/bucket/o/$testFile")
-        val testFileContents = "TWV0YW1vcnBob3NpcyBieSBPdmlk"
 
         val mockRequest = mockk<GetObjectRequest> {}
         mockkConstructor(GetObjectRequest.Builder::class)
@@ -522,14 +344,8 @@ class OCIClientTest {
             }
         every { anyConstructed<GetObjectRequest.Builder>().objectName(testFile) } returns mockBuilder
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { getObject(mockRequest) } throws BmcException(500, "BucketFellOffCliff", "", "")
-            }
+        every { objectStorageClient.getObject(mockRequest) } throws BmcException(500, "BucketFellOffCliff", "", "")
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
-        every { client.getObjectBody(testUrl) } answers { callOriginal() }
         assertThrows<BmcException> { client.getObjectBody(testUrl) }
     }
 
@@ -553,13 +369,8 @@ class OCIClientTest {
                 every { __httpStatusCode__ } returns 200
             }
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { headObject(mockRequest) } returns mockResponse
-            }
+        every { objectStorageClient.headObject(mockRequest) } returns mockResponse
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
         assertTrue(client.objectExists(testUrl))
     }
 
@@ -583,13 +394,8 @@ class OCIClientTest {
                 every { __httpStatusCode__ } returns 404
             }
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { headObject(mockRequest) } returns mockResponse
-            }
+        every { objectStorageClient.headObject(mockRequest) } returns mockResponse
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
         assertFalse(client.objectExists(testUrl))
     }
 
@@ -612,13 +418,7 @@ class OCIClientTest {
                 every { __httpStatusCode__ } returns 200
             }
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { headObject(mockRequest) } returns mockResponse
-            }
-
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
+        every { objectStorageClient.headObject(mockRequest) } returns mockResponse
         assertTrue(client.objectExists(testFile))
     }
 
@@ -641,18 +441,8 @@ class OCIClientTest {
                 every { __httpStatusCode__ } returns 404
             }
 
-        val mockObjectStorageClient =
-            mockk<ObjectStorageClient> {
-                every { headObject(mockRequest) } returns mockResponse
-            }
+        every { objectStorageClient.headObject(mockRequest) } returns mockResponse
 
-        val client = spyk(testClient)
-        every { client getProperty "client" } returns mockObjectStorageClient
         assertFalse(client.objectExists(testFile))
-    }
-
-    @AfterEach
-    fun `unmockk all`() {
-        unmockkAll()
     }
 }
