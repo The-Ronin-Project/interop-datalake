@@ -5,6 +5,7 @@ import com.projectronin.interop.common.jackson.JacksonUtil
 import com.projectronin.interop.datalake.oci.client.OCIClient
 import com.projectronin.interop.fhir.r4.resource.Binary
 import com.projectronin.interop.fhir.r4.resource.Resource
+import datadog.trace.api.Trace
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -45,6 +46,7 @@ class DatalakePublishService(
      *                  but expects all of them to have a defined ID
      * @throws IllegalStateException if any of the resources lacked FHIR id values so were not published.
      */
+    @Trace
     fun publishFHIRR4(
         tenantId: String,
         resources: List<Resource<*>>,
@@ -94,6 +96,7 @@ class DatalakePublishService(
      * @param binaryList the Binary objects to store in OCI
      * @return The URL of the uploaded data.
      */
+    @Trace
     fun publishBinaryData(
         tenantId: String,
         binaryList: List<Binary>,
@@ -162,6 +165,7 @@ class DatalakePublishService(
      * @param url The URL of the original API call
      * @return The URL of the uploaded data.
      */
+    @Trace
     fun publishRawData(
         tenantId: String,
         data: String,

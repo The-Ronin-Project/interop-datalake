@@ -15,6 +15,7 @@ dependencies {
     implementation(libs.oci.common)
     implementation(libs.oci.objectstorage)
     implementation(libs.oci.http.client)
+    implementation(libs.dd.trace.api)
 
     testImplementation(libs.mockk)
     testImplementation("org.springframework:spring-test")

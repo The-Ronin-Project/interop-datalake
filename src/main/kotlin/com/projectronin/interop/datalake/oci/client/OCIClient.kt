@@ -9,6 +9,7 @@ import com.oracle.bmc.objectstorage.requests.GetObjectRequest
 import com.oracle.bmc.objectstorage.requests.HeadObjectRequest
 import com.oracle.bmc.objectstorage.requests.PutObjectRequest
 import com.oracle.bmc.objectstorage.responses.HeadObjectResponse
+import datadog.trace.api.Trace
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
@@ -135,6 +136,7 @@ class OCIClient(
             client,
         )
 
+    @Trace
     private fun uploadObjectRequest(
         putObjectRequest: PutObjectRequest,
         client: ObjectStorageClient,
@@ -161,6 +163,7 @@ class OCIClient(
     /**
      * Retrieves the contents of the object found at [fileName]
      */
+    @Trace
     fun getObjectBody(
         bucket: String,
         fileName: String,
